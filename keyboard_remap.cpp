@@ -5,44 +5,58 @@
 HHOOK hHook;
 std::map<int, int> keymap;
 std::map<std::pair<int, int>, int> keymapcombo;
+std::map<int, bool> keydown;
 bool exitFlag = false;
 
 LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wParam, LPARAM lParam)
 {
     if (nCode == HC_ACTION)
     {
-      if (wParam == WM_KEYDOWN || wParam == WM_SYSKEYDOWN) {
-        KBDLLHOOKSTRUCT* p = (KBDLLHOOKSTRUCT*)lParam;
+      KBDLLHOOKSTRUCT* p = (KBDLLHOOKSTRUCT*)lParam;
+      int vkCode = p->vkCode;
 
-        if (p->vkCode == VK_ESCAPE) {
+      if (wParam == WM_KEYDOWN || wParam == WM_SYSKEYDOWN) {
+        if (vkCode == VK_ESCAPE) {
           exitFlag = true;
           PostQuitMessage(0);
           return 1;
         }
 
-        for (auto it = keymapcombo.begin(); it != keymapcombo.end(); ++it) {
-          if (p->vkCode == it->first.first && GetAsyncKeyState(it->first.second) & 0x8000 ||
-              p->vkCode == it->first.second && GetAsyncKeyState(it->first.first) & 0x8000) {
+        if (!keydown[vkCode]) {
+          keydown[vkCode] = true;
+
+          for (auto it = keymapcombo.begin(); it != keymapcombo.end(); ++it) {
+            if (keydown[it->first.first] && keydown[it->first.second]) {
+              INPUT input;
+              input.type = INPUT_KEYBOARD;
+              input.ki.wScan = 0;
+              input.ki.time = 0;
+              input.ki.dwExtraInfo = 0;
+
+              input.ki.dwFlags = 0;
+              input.ki.wVk = it->second;
+              SendInput(1, &input, sizeof(INPUT));
+
+              return 1;
+            }
+          }
+
+          if (keymap.find(vkCode) != keymap.end()) {
             INPUT input;
             input.type = INPUT_KEYBOARD;
-            input.ki.wVk = it->second;
-            input.ki.dwFlags = 0;
+            input.ki.wScan = 0;
+            input.ki.time = 0;
+            input.ki.dwExtraInfo = 0;
 
+            input.ki.dwFlags = 0;
+            input.ki.wVk = keymap[vkCode];
             SendInput(1, &input, sizeof(INPUT));
+
             return 1;
           }
         }
-
-        if (keymap.find(p->vkCode) != keymap.end())
-        {
-          INPUT input;
-          input.type = INPUT_KEYBOARD;
-          input.ki.wVk = keymap[p->vkCode];
-          input.ki.dwFlags = 0;
-
-          SendInput(1, &input, sizeof(INPUT));
-          return 1;
-        }
+      } else if (wParam == WM_KEYUP || wParam == WM_SYSKEYUP) {
+        keydown[vkCode] = false;
       }
     }
     
@@ -52,7 +66,7 @@ LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wParam, LPARAM lParam)
 void initKeymap() {
   keymap['A'] = 'B';
 
-  keymapcombo[std::make_pair<int, int>('B', 'C')] = 'D';
+  keymapcombo[std::make_pair<int, int>('A', 'C')] = 'D';
 }
 
 int main() {

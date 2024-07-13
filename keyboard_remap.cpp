@@ -22,41 +22,55 @@ LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wParam, LPARAM lParam)
           return 1;
         }
 
-        if (!keydown[vkCode]) {
-          keydown[vkCode] = true;
+        keydown[vkCode] = true;
 
-          for (auto it = keymapcombo.begin(); it != keymapcombo.end(); ++it) {
-            if (keydown[it->first.first] && keydown[it->first.second]) {
-              INPUT input;
-              input.type = INPUT_KEYBOARD;
-              input.ki.wScan = 0;
-              input.ki.time = 0;
-              input.ki.dwExtraInfo = 0;
+        for (auto it = keymapcombo.begin(); it != keymapcombo.end(); ++it) {
+          if (keydown[it->first.first] && keydown[it->first.second]) {
+            keydown[it->first.first] = false;
+            keydown[it->first.second] = false;
 
-              input.ki.dwFlags = 0;
-              input.ki.wVk = it->second;
-              SendInput(1, &input, sizeof(INPUT));
+            INPUT ip;
+            ip.type = INPUT_KEYBOARD;
+            ip.ki.wVk = it->second;
+            ip.ki.dwFlags = 0;
+            ip.ki.time = 0;
+            ip.ki.dwExtraInfo = 0;
 
-              return 1;
-            }
-          }
+            SendInput(1, &ip, sizeof(INPUT));
 
-          if (keymap.find(vkCode) != keymap.end()) {
-            INPUT input;
-            input.type = INPUT_KEYBOARD;
-            input.ki.wScan = 0;
-            input.ki.time = 0;
-            input.ki.dwExtraInfo = 0;
-
-            input.ki.dwFlags = 0;
-            input.ki.wVk = keymap[vkCode];
-            SendInput(1, &input, sizeof(INPUT));
-
+            return 1;
+          } else if (keydown[it->first.first] || keydown[it->first.second]) {
             return 1;
           }
         }
+
+        if (keymap.find(vkCode) != keymap.end()) {
+          INPUT ip;
+          ip.type = INPUT_KEYBOARD;
+          ip.ki.wVk = keymap[vkCode];
+          ip.ki.dwFlags = 0;
+          ip.ki.time = 0;
+          ip.ki.dwExtraInfo = 0;
+
+          SendInput(1, &ip, sizeof(INPUT));
+
+          return 1;
+        }
       } else if (wParam == WM_KEYUP || wParam == WM_SYSKEYUP) {
         keydown[vkCode] = false;
+
+        if (keymap.find(vkCode) != keymap.end()) {
+          INPUT ip;
+          ip.type = INPUT_KEYBOARD;
+          ip.ki.wVk = keymap[vkCode];
+          ip.ki.dwFlags = KEYEVENTF_KEYUP;
+          ip.ki.time = 0;
+          ip.ki.dwExtraInfo = 0;
+
+          SendInput(1, &ip, sizeof(INPUT));
+
+          return 1;
+        }
       }
     }
     
@@ -66,7 +80,7 @@ LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wParam, LPARAM lParam)
 void initKeymap() {
   keymap['A'] = 'B';
 
-  keymapcombo[std::make_pair<int, int>('A', 'C')] = 'D';
+  keymapcombo[{'Q', 'W'}] = 'D';
 }
 
 int main() {
